@@ -1,71 +1,78 @@
-import requests
-import re
-import mysql.connector
-import pandas as pd
-from config import MEDLINEPLUS_CONNECT_BASE_URL, TIDB_CONFIG
+# data_retriever.py
 
- 
+import requests
+from config import CONNECTION_STRING, MEDLINEPLUS_CONNECT_BASE_URL, GG_MAPS_API_KEY, IPAPI_URL
+import pandas as pd
+import googlemaps
+from embedding_data import generate_embeddings
+
 def get_medline_info(code, code_system='2.16.840.1.113883.6.90'):
     url = f"{MEDLINEPLUS_CONNECT_BASE_URL}?mainSearchCriteria.v.cs={code_system}&mainSearchCriteria.v.c={code}&knowledgeResponseType=application/json"
     response = requests.get(url)
     if response.status_code==200:
         data = response.json()
-        if 'feed' in data and 'entry' in data['feed']:
-            return data['feed']['entry'][0]
-        return None
-''' 
-INFO: For diagnosis codes, medline returns:
-- page title
-- page url
-- synonyms, if available ("Also called")
-- page summary
-- summary attribution
-'''
-def retrieve_health_data(connection, code, code_system, info):
-    cursor = connection.cursor()
-    # retrieve disease information
-    disease_sql = """
-    INSERT INTO diseases (id, name, description, url)
-    VALUES (%s, %s, %s, %s)
-    ON DUPLICATE KEY UPDATE
-    name = VALUES(name),
-    description = VALUES(description),
-    url = VALUES(url)
-    """
+        entries = data.get('feed', {}).get('entry', [])
 
-    disease_data = (
-        code,
-        info['title'],
-        info.get('summary', ''),
-        info['link'][0]['href']
-    )
-    cursor.execute(disease_sql, disease_data)
+        results = []
+        for entry in entries:
+            title = entry.get('title', {}).get('_value', '')
+            summary = entry.get('summary', {}).get('_value', '')
+            link = next((l.get('href') for l in entry.get('link', []) if l.get('ref') == 'alternate'), '')
 
-    # insert symptoms if available
-    summary = info['summary']['_value']
-    symptoms_match = re.search(r'Symptoms may include:(.*?)(?:<\/p>|<p>)', summary, re.DOTALL)
-    if symptoms_match:
-        symptoms_text = symptoms_match.group(1).strip()
-        symptoms_text = re.sub(r'<.*?>', '', symptoms_text)  # Remove HTML tags
-        symptoms_text = re.sub(r'\s+', ' ', symptoms_text)   # Remove extra whitespace
-        symptoms_text = symptoms_text.replace('&nbsp;', ' ') # Replace &nbsp; with space
-        symptoms = [symptom.strip() for symptom in symptoms_text.split(',') if symptom.strip()]
+            results.append({
+                'title': title,
+                'summary': summary,
+                'link': link
+            })
+        return results
+    return None
 
-        for symptom in symptoms:
-            symptom_sql = "INSERT IGNORE INOT symptoms (name) VALUES (%s)"
-            cursor.execute(symptom_sql, (symptom,))
+# get user location using Geolocation API
+def get_user_location():
+    try:
+        response = requests.get(IPAPI_URL)
+        if response.status_code == 200:
+            data = response.json()
+            return data['latitude'], data['longitude']
+    except Exception as e:
+        print(f"Error getting location: {e}")
+    return None
 
-            # get the inserted symptom id
-            cursor.execute("SELECT id FROM symptoms WHERE name = %s", (symptom,))
-            symptom_id = cursor.fetchone()[0]
-            # disease - symptom relation
-            relation_sql = "INSERT IGNORE INTO disease_symptoms (disease_id, symptom_id) VALUES (%s, %s)"
-            cursor.execute(relation_sql, (code, symptom_id))
-
-    connection.commit()
-
-
-def main():
-    connection = mysql.connector.connect(**TIDB_CONFIG)
+# get nearby clinics
+def get_nearby_clinics(lat, lng, keyword=None):
+    gmaps = googlemaps.Client(key=GG_MAPS_API_KEY)
     
+    location = (lat, lng)
+    radius = 5000  # Search within 5km radius
+    type = 'hospital'
+    
+    try:
+        if keyword:
+            places_result = gmaps.places_nearby(location=location, radius=radius, type=type, keyword=keyword)
+        else:
+            places_result = gmaps.places_nearby(location=location, radius=radius, type=type)
+        
+        return places_result.get('results', [])[:3]  # return top 3 results
+    except Exception as e:
+        print(f"Error finding nearby hospital: {e}")
+        return []
+    
+def format_clinic_info(clinics):
+    if clinics:
+        clinic_info = "Nearby clinics: \n"
+        for i, clinic in enumerate(clinics, 1):
+            clinic_info += f"{i}. {clinic['name']}, {clinic['fullAddress']}\n"
+        return clinic_info
+    return "Unable to retrieve clinic information"
+
+def store_health_info(info, code, code_system, clinics, user_location):
+    documents = []
+    for entry in info:
+        combined_text = f"{entry['title']} {entry['summary']}"
+        doc = Document(text=combined_text, metadata={"code": code, "code_system": code_system})
+        documents.append(doc)
+    
+    # use LlamaIndex to index and store the documents
+    index.insert_nodes(documents)
+
     

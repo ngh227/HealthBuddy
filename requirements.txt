@@ -1,2 +1,10 @@
 requests
-mysql-connector-python
+googlemaps
+geopy
+sentence_transformers
+jina 
+llama-index 
+pymysql 
+numpy
+llama-index-vector-stores-tidbvector 
+python-dotenv
