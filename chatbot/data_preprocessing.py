@@ -13,6 +13,8 @@ from tidb_vector.integrations import TiDBVectorClient
 
 load_dotenv()
 JINAAI_API_KEY = os.getenv('JINAAI_API_KEY')
+MEDLINEPLUS_CONNECT_BASE_URL = "https://connect.medlineplus.gov/service"
+ICD10_CODE_SYSTEM = "2.16.840.1.113883.6.90"
 # CONNECTION_STRING = os.getenv('TIDB_DATABASE_URL')
 
 def generate_embeddings(text: str):
@@ -158,8 +160,7 @@ def get_disease_code(disease_name, file_path):
 #                 return None
 #             sleep(1) 
 #     return None
-MEDLINEPLUS_CONNECT_BASE_URL = "https://connect.medlineplus.gov/service"
-ICD10_CODE_SYSTEM = "2.16.840.1.113883.6.90"
+
 def fetch_medlineplus_data(code):
     url = f"{MEDLINEPLUS_CONNECT_BASE_URL}?mainSearchCriteria.v.cs={ICD10_CODE_SYSTEM}&mainSearchCriteria.v.c={code}&knowledgeResponseType=application/json"
     
@@ -195,15 +196,41 @@ def store_in_tidb(item, vector_store):
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
+            # check if item exists
+            # check_sql = "SELECT id, title, summary, link FROM health_topics WHERE code = %s"
+            # cursor.execute(check_sql, (item['code'],))
+            # existing_data = cursor.fetchone()
+
             embedding = generate_embeddings(item['summary'])
             embedding_str = ','.join(map(str, embedding))
-            sql = """
+
+            # if existing_data:
+            #     # Update existing entry
+            #     update_sql = """
+            #     UPDATE health_topics 
+            #     SET title = %s, summary = %s, link = %s, code_system = %s, embedding = %s
+            #     WHERE code = %s
+            #     """
+            #     cursor.execute(update_sql, (
+            #         item['title'],
+            #         item['summary'],
+            #         item['link'],
+            #         item['code_system'],
+            #         embedding_str,
+            #         item['code']
+            #     ))
+                # If the item exists, append new information
+                # existing_title, existing_summary, existing_link = existing_data
+                # new_title = f"{existing_title}; {item['title']}"
+                # new_summary = f"{existing_summary}\n\nAdditional Information:\n{item['summary']}"
+                # new_link = f"{existing_link}; {item['link']}"
+            # else:
+            insert_sql = """
             INSERT INTO health_topics 
             (title, summary, link, code, code_system, embedding) 
             VALUES (%s, %s, %s, %s, %s, %s)
             """
-
-            cursor.execute(sql, (
+            cursor.execute(insert_sql, (
                 item['title'],
                 item['summary'],
                 item['link'],
@@ -211,18 +238,50 @@ def store_in_tidb(item, vector_store):
                 item['code_system'],
                 embedding_str
             ))
+
+            cursor.execute("SELECT LAST_INSERT_ID()")
+            db_id = cursor.fetchone()[0]
         connection.commit()
-        print(f"Successfully stored item: {item['title']}")
+        print(f"Inserted new item with ID: {db_id}")
+                # If it's a new item, use the provided information
+            #     new_title = item['title']
+            #     new_summary = item['summary']
+            #     new_link = item['link']
+            
+            # embedding = generate_embeddings(new_summary)
+            # embedding_str = ','.join(map(str, embedding))
+            # sql = """
+            # INSERT INTO health_topics 
+            # (title, summary, link, code, code_system, embedding) 
+            # VALUES (%s, %s, %s, %s, %s, %s)
+            # ON DUPLICATE KEY UPDATE
+            # title = VALUES(title),
+            # summary = VALUES(summary),
+            # link = VALUES(link),
+            # code_system = VALUES(code_system),
+            # embedding = VALUES(embedding)
+            # """
+
+        #     cursor.execute(sql, (
+        #         new_title,
+        #         new_summary,
+        #         new_link,
+        #         item['code'],
+        #         item['code_system'],
+        #         embedding_str
+        #     ))
+        # connection.commit()
+        # print(f"Successfully stored item: {item['title']}")
 
         # Add to vector store
         vector_store.insert(
-            ids=[item['code']],
+            ids=[str(db_id)],
             texts=[item['summary']],
             embeddings=[embedding],
             metadata=[{
                 "title": item['title'],
-                # "summary": item['summary'],
                 "link": item['link'],
+                "code": item['code'],
                 "code_system": item['code_system']
             }]
         )

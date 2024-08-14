@@ -67,7 +67,7 @@ def test_medlineplus_data_ingestion():
 
     # Test vector search
     logger.info("Testing vector search...")
-    test_query = "What are the symptoms of diabetes?"
+    test_query = "What are the symptoms of asthma?"
     query_embedding = generate_embeddings(test_query)
     search_results = vector_store.query(query_embedding, top_k=3)
     logger.info(f"Search results for query: '{test_query}'")
