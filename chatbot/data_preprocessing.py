@@ -6,7 +6,9 @@ import os
 import pymysql
 import requests
 import csv
+from datetime import datetime
 from typing import List, Dict, Optional
+
 from time import sleep
 from dotenv import load_dotenv
 from tidb_vector.integrations import TiDBVectorClient
@@ -42,7 +44,7 @@ def get_db_connection():
         ssl_ca = "/etc/ssl/cert.pem"
     )
 
-def setup_vector_store():
+def setup_disease_vector_store():
     return TiDBVectorClient(
         connection_string=os.getenv('TIDB_DATABASE_URL'),
         table_name="health_topics",
@@ -73,7 +75,7 @@ def create_health_topics_table():
         print(f"An error occurred: {e}")
     finally:
         connection.close()
-
+## DELETE THIS ##################
 def create_clinics_table():
     connection = get_db_connection()
     try:
@@ -112,55 +114,6 @@ def get_disease_code(disease_name, file_path):
     disease_codes = load_disease_codes(file_path)
     return disease_codes.get(disease_name.lower())
 
-##### FETCHING PROBLEM #####
-'''Fix: Switch to search with disease code'''
-# def fetch_medlineplus_data(condition, max_retries=3):
-#     base_url = "https://connect.medlineplus.gov/application"
-#     params = {
-#         "mainSearchCriteria.v.cs": "name",#"2.16.840.1.113883.6.90",
-#         "mainSearchCriteria.v.c": condition,
-#         "knowledgeResponseType": "application/json"
-#     }
-    
-#     for attempt in range(max_retries):
-#         try:
-#             response = requests.get(base_url, params=params)
-#             response.raise_for_status()  
-            
-#             data = response.json()
-#             if 'feed' in data and 'entry' in data['feed']:
-#                 entries = data['feed']['entry']
-#                 if not isinstance(entries, list):
-#                     entries = [entries]
-                
-#                 results = []
-#                 for entry in entries:
-#                     result = {
-#                         'title': entry.get('title', ''),
-#                         'summary': entry.get('summary', {}).get('_value', ''),
-#                         'link': next((link['href'] for link in entry.get('link', []) if link.get('title') == 'MedlinePlus Health Information'), None),
-#                         'code': entry.get('id', '').split('/')[-1],
-#                         'code_system': 'MedlinePlus'
-
-#                         # 'title': entry.get('title', ''),
-#                         # 'summary': entry.get('summary', ''),
-#                         # 'link': next((link['href'] for link in entry.get('link', []) if link.get('rel') == 'alternate'), None),
-#                         # 'code': entry.get('category', [{}])[0].get('term'),
-#                         # 'code_system': entry.get('category', [{}])[0].get('scheme')
-#                     }
-#                     results.append(result)
-                
-#                 return results
-            
-#             return None
-        
-#         except requests.RequestException as e:
-#             if attempt == max_retries - 1:
-#                 print(f"Error fetching data: {e}")
-#                 return None
-#             sleep(1) 
-#     return None
-
 def fetch_medlineplus_data(code):
     url = f"{MEDLINEPLUS_CONNECT_BASE_URL}?mainSearchCriteria.v.cs={ICD10_CODE_SYSTEM}&mainSearchCriteria.v.c={code}&knowledgeResponseType=application/json"
     
@@ -192,39 +145,12 @@ def fetch_medlineplus_data(code):
         return None
 
 
-def store_in_tidb(item, vector_store):
+def store_disease_in_tidb(item, vector_store):
     connection = get_db_connection()
     try:
         with connection.cursor() as cursor:
-            # check if item exists
-            # check_sql = "SELECT id, title, summary, link FROM health_topics WHERE code = %s"
-            # cursor.execute(check_sql, (item['code'],))
-            # existing_data = cursor.fetchone()
-
             embedding = generate_embeddings(item['summary'])
             embedding_str = ','.join(map(str, embedding))
-
-            # if existing_data:
-            #     # Update existing entry
-            #     update_sql = """
-            #     UPDATE health_topics 
-            #     SET title = %s, summary = %s, link = %s, code_system = %s, embedding = %s
-            #     WHERE code = %s
-            #     """
-            #     cursor.execute(update_sql, (
-            #         item['title'],
-            #         item['summary'],
-            #         item['link'],
-            #         item['code_system'],
-            #         embedding_str,
-            #         item['code']
-            #     ))
-                # If the item exists, append new information
-                # existing_title, existing_summary, existing_link = existing_data
-                # new_title = f"{existing_title}; {item['title']}"
-                # new_summary = f"{existing_summary}\n\nAdditional Information:\n{item['summary']}"
-                # new_link = f"{existing_link}; {item['link']}"
-            # else:
             insert_sql = """
             INSERT INTO health_topics 
             (title, summary, link, code, code_system, embedding) 
@@ -243,36 +169,6 @@ def store_in_tidb(item, vector_store):
             db_id = cursor.fetchone()[0]
         connection.commit()
         print(f"Inserted new item with ID: {db_id}")
-                # If it's a new item, use the provided information
-            #     new_title = item['title']
-            #     new_summary = item['summary']
-            #     new_link = item['link']
-            
-            # embedding = generate_embeddings(new_summary)
-            # embedding_str = ','.join(map(str, embedding))
-            # sql = """
-            # INSERT INTO health_topics 
-            # (title, summary, link, code, code_system, embedding) 
-            # VALUES (%s, %s, %s, %s, %s, %s)
-            # ON DUPLICATE KEY UPDATE
-            # title = VALUES(title),
-            # summary = VALUES(summary),
-            # link = VALUES(link),
-            # code_system = VALUES(code_system),
-            # embedding = VALUES(embedding)
-            # """
-
-        #     cursor.execute(sql, (
-        #         new_title,
-        #         new_summary,
-        #         new_link,
-        #         item['code'],
-        #         item['code_system'],
-        #         embedding_str
-        #     ))
-        # connection.commit()
-        # print(f"Successfully stored item: {item['title']}")
-
         # Add to vector store
         vector_store.insert(
             ids=[str(db_id)],
@@ -298,8 +194,5 @@ def ingest_medlineplus_data(conditions):
         data = fetch_medlineplus_data(condition)
         if data:
             for item in data:
-                store_in_tidb(item)
+                store_disease_in_tidb(item)
                 print(item)
-
-
-
