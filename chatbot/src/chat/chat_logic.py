@@ -1,22 +1,22 @@
 import os
 import google.generativeai as genai
 import logging
-import torch
 from typing import List, Tuple
 from dotenv import load_dotenv
-from data_preprocessing import (
+from ..data.data_preprocessing import (
     generate_embeddings, setup_disease_vector_store,
     create_health_topics_table, fetch_medlineplus_data,
     store_disease_in_tidb, load_disease_codes
 )
-from hospital_functions import get_user_location, find_nearest_hospital, is_hospital_request
-from diagnosis import is_diagnosis_request
+from ..services.hospital_services import get_user_location, find_nearest_hospital, is_hospital_request
+from ..services.diagnosis import is_diagnosis_request
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-DISEASE_CODES_FILE = "disease_codes.csv"
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DISEASE_CODES_FILE = os.path.join(BASE_DIR, "disease_codes.csv")
 MAX_VECTOR_SEARCHES = 3
 SIMILARITY_THRESHOLD = 0.8
 
@@ -58,7 +58,7 @@ def setup_chatbot():
     except Exception as e:
         logger.error(f"Error setting up chatbot: {str(e)}", exc_info=True)
         raise
-#### CHAT HISTORY #####
+
 def format_chat_history(chat_history: List[Tuple[str, str]], max_history: int = 3) -> str:
     formatted_history = ""
     for i, (human, ai) in enumerate(chat_history[-max_history:], 1):
@@ -144,23 +144,3 @@ def chatbot(user_input: str, disease_vector_store, chat_history: List[Tuple[str,
     except Exception as e:
         logger.error(f"Error in chatbot function: {str(e)}", exc_info=True)
         return "I'm sorry, I encountered an error while processing your request. Could you please try again?"
-
-def main():
-    try:
-        disease_vector_store = setup_chatbot()
-        chat_history: List[Tuple[str, str]] = []
-        print("Chatbot is ready. You can start asking questions. Type 'exit' to quit.")
-
-        while True:
-            user_input = input("You: ")
-            if user_input.lower() == 'exit':
-                print("Chatbot: Goodbye!")
-                break
-            response, chat_history = chatbot(user_input, disease_vector_store, chat_history)
-            print("Chatbot:", response)
-    except Exception as e:
-        logger.error(f"Fatal error in main function: {str(e)}", exc_info=True)
-        print("An unexpected error occurred. Please check the logs for more information.")
-
-if __name__ == "__main__":
-    main()

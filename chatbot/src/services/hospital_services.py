@@ -3,11 +3,9 @@ import requests
 import logging
 from googlemaps import Client as GoogleMaps
 from googlemaps.exceptions import ApiError
-from datetime import datetime
-
 from dotenv import load_dotenv
 from tidb_vector.integrations import TiDBVectorClient
-from data_preprocessing import generate_embeddings
+from ..data.data_preprocessing import generate_embeddings
 
 load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv('GG_MAPS_API_KEY')
@@ -20,14 +18,14 @@ HOSPITAL_PHRASES = [
     "nearest doctor's office", "hospital directions"
 ]
 
-def setup_hospital_vector_store():
-    return TiDBVectorClient(
-        connection_string=os.getenv('TIDB_DATABASE_URL'),
-        table_name="hospitals",
-        distance_strategy="cosine",
-        vector_dimension=768,
-        drop_existing_table=True
-    )
+# def setup_hospital_vector_store():
+#     return TiDBVectorClient(
+#         connection_string=os.getenv('TIDB_DATABASE_URL'),
+#         table_name="hospitals",
+#         distance_strategy="cosine",
+#         vector_dimension=768,
+#         drop_existing_table=True
+#     )
 
 def setup_hospital_request_vector_store():
     hospital_request_vector_store = TiDBVectorClient(

@@ -1,4 +1,4 @@
-from data_preprocessing import get_db_connection
+from ..utils.database import get_db_connection
 
 def create_chat_history_table():
     connection = get_db_connection()

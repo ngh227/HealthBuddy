@@ -1,8 +1,7 @@
 import os
 from tidb_vector.integrations import TiDBVectorClient
-from data_preprocessing import (
-    generate_embeddings
-)
+from ..data.data_preprocessing import generate_embeddings
+
 DIAGNOSIS_PHRASES = [
     "diagnose me", "what do i have",
     "what's wrong with me", "what is my condition",

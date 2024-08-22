@@ -1,10 +1,10 @@
 from flask import Flask, jsonify, render_template, request, session
+import google.generativeai as genai
 from dotenv import load_dotenv
 import os
-import google.generativeai as genai
 import uuid
-from chat_history import create_chat_history_table, store_chat_message, get_chat_history
-from chat_logic import setup_chatbot, chatbot
+from src.chat import create_chat_history_table, store_chat_message, get_chat_history
+from src.chat import setup_chatbot, chatbot
 
 # Load environment variables
 load_dotenv()

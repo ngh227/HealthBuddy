@@ -1,19 +1,16 @@
 import os
-import pymysql
 import requests
 import csv
-from datetime import datetime
-from typing import List, Dict, Optional
-
-from time import sleep
+from typing import Dict
 from dotenv import load_dotenv
+from ..utils.database import get_db_connection
 from tidb_vector.integrations import TiDBVectorClient
 
 load_dotenv()
+
 JINAAI_API_KEY = os.getenv('JINAAI_API_KEY')
 MEDLINEPLUS_CONNECT_BASE_URL = "https://connect.medlineplus.gov/service"
 ICD10_CODE_SYSTEM = "2.16.840.1.113883.6.90"
-# CONNECTION_STRING = os.getenv('TIDB_DATABASE_URL')
 
 def generate_embeddings(text: str):
     JINAAI_API_URL = 'https://api.jina.ai/v1/embeddings'
@@ -28,17 +25,7 @@ def generate_embeddings(text: str):
     response = requests.post(JINAAI_API_URL, headers=JINAAI_HEADERS, json=JINAAI_REQUEST_DATA)
     return response.json()['data'][0]['embedding']
 
-def get_db_connection():
-    return pymysql.connect(
-        host = "gateway01.us-east-1.prod.aws.tidbcloud.com",
-        port = 4000,
-        user = "4LGwjP9LLkyZsPM.root",
-        password = "8UtljhBzTizGLCmZ",
-        database = "test",
-        ssl_verify_cert = True,
-        ssl_verify_identity = True,
-        ssl_ca = "/etc/ssl/cert.pem"
-    )
+
 
 def setup_disease_vector_store():
     return TiDBVectorClient(
@@ -72,21 +59,6 @@ def create_health_topics_table():
     finally:
         connection.close()
 
-def load_disease_codes(file_path: str) -> Dict[str, str]:
-    disease_codes = {}
-    with open(file_path, 'r') as file:
-        reader = csv.reader(file)
-        next(reader)  
-        for row in reader:
-            if len(row) == 2:
-                disease_name, code = row
-                disease_codes[disease_name.lower()] = code
-    return disease_codes
-
-def get_disease_code(disease_name, file_path):
-    disease_codes = load_disease_codes(file_path)
-    return disease_codes.get(disease_name.lower())
-
 def fetch_medlineplus_data(code):
     url = f"{MEDLINEPLUS_CONNECT_BASE_URL}?mainSearchCriteria.v.cs={ICD10_CODE_SYSTEM}&mainSearchCriteria.v.c={code}&knowledgeResponseType=application/json"
     
@@ -116,7 +88,6 @@ def fetch_medlineplus_data(code):
     else:
         print(f"Error fetching data for code {code}: Status code {response.status_code}")
         return None
-
 
 def store_disease_in_tidb(item, vector_store):
     connection = get_db_connection()
@@ -161,11 +132,26 @@ def store_disease_in_tidb(item, vector_store):
 
     finally:
         connection.close()
-    
-def ingest_medlineplus_data(conditions):
-    for condition in conditions:
-        data = fetch_medlineplus_data(condition)
-        if data:
-            for item in data:
-                store_disease_in_tidb(item)
-                print(item)
+
+def load_disease_codes(file_path: str) -> Dict[str, str]:
+    disease_codes = {}
+    with open(file_path, 'r') as file:
+        reader = csv.reader(file)
+        next(reader)  
+        for row in reader:
+            if len(row) == 2:
+                disease_name, code = row
+                disease_codes[disease_name.lower()] = code
+    return disease_codes
+
+# def get_disease_code(disease_name, file_path):
+#     disease_codes = load_disease_codes(file_path)
+#     return disease_codes.get(disease_name.lower())
+
+# def ingest_medlineplus_data(conditions):
+#     for condition in conditions:
+#         data = fetch_medlineplus_data(condition)
+#         if data:
+#             for item in data:
+#                 store_disease_in_tidb(item)
+#                 print(item)
