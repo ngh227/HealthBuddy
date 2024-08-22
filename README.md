@@ -14,7 +14,6 @@ Before running this program, ensure you have the following installed:
 1. Clone the repository:
    ```
    git clone https://github.com/ngh227/HealthBuddy.git
-   cd chatbot
    ```
 
 2. Create a virtual environment (optional but recommended):
@@ -29,7 +28,7 @@ Before running this program, ensure you have the following installed:
    ```
 
 4. Set up environment variables:
-   - Create a `.env` file in the root directory (in 'chatbot')
+   - Create a `.env` file in the root directory
    - Add the following variables (replace with your actual API keys and database URL):
      ```
      GOOGLE_API_KEY=your_google_api_key
@@ -43,7 +42,7 @@ Before running this program, ensure you have the following installed:
 To start the chatbot, run the following command from the project root directory:
 
 ```
-python main.py
+python app.py
 ```
 
 Follow the prompts in the console to interact with the chatbot. You can ask health-related questions, request information about diseases, or ask for the nearest hospital.
@@ -54,10 +53,6 @@ Follow the prompts in the console to interact with the chatbot. You can ask heal
 - Nearest hospital locator
 - Chat history management
 - Disease data preprocessing and storage
-
-## License
-
-[Specify your license here, e.g., MIT License]
 
 ## Contact
 

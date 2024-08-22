@@ -1,0 +1,7 @@
+python-dotenv==1.0.0
+pymysql==1.1.0
+requests==2.31.0
+google-generativeai==0.3.1
+tidb-vector==0.1.0
+torch==2.1.0
+googlemaps==4.10.0
