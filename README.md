@@ -4,7 +4,7 @@ This project is a RAG-based (Retrieval-Augmented Generation) health information 
 
 ## Features
 
-- Provides accurate health informatiion sourced from [https://medlineplus.gov/medlineplus-connect/](MedlinePlus Connect)
+- Provides accurate health informatiion sourced from Medline Plus Connect [https://medlineplus.gov/medlineplus-connect/]
 - Utilizes TiDB's vector search capabilities for efficient information retrieval that will be used for prompt engineering
 - Generates embeddings using TiDB Embeddings AI for enhanced vector search
 - Locates nearby hospitals based on user location
