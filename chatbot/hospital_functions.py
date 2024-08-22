@@ -7,7 +7,7 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 from tidb_vector.integrations import TiDBVectorClient
-from data_preprocessing import (get_db_connection, generate_embeddings)
+from data_preprocessing import generate_embeddings
 
 load_dotenv()
 GOOGLE_MAPS_API_KEY = os.getenv('GG_MAPS_API_KEY')
@@ -25,7 +25,7 @@ def setup_hospital_vector_store():
         connection_string=os.getenv('TIDB_DATABASE_URL'),
         table_name="hospitals",
         distance_strategy="cosine",
-        vector_dimension=768,  # Dimension of Jina embeddings
+        vector_dimension=768,
         drop_existing_table=True
     )
 
@@ -55,8 +55,6 @@ def is_hospital_request(query_embedding, threshold=0.85):
         return (1 - results[0].distance) > threshold
     return False
 
-####### HOSPITAL - LOCATION DATA ###################################
-'''TODO:in main function, GET USER'S LOCATION, RETURN LATITUDE AND LONGTITUDE'''  
 def get_user_location():
     try:
         response = requests.get('https://ipapi.co/json/')
@@ -69,47 +67,6 @@ def get_user_location():
     except requests.RequestException as e:
         print(f"Error: {e}")
         return None, None
-  
-def create_hospitals_table():
-    connection = get_db_connection()
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS hospitals (
-                id BIGINT AUTO_RANDOM PRIMARY KEY,
-                name VARCHAR(255),
-                address VARCHAR(255),
-                latitude FLOAT,
-                longitude FLOAT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-            """)
-        connection.commit()
-        print("hospitals table created successfully")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    finally:
-        connection.close()
-
-# def find_nearest_hospital(user_lat, user_long, radius=5000, max_result=3):
-#     gmaps = GoogleMaps(key = GOOGLE_MAPS_API_KEY)
-
-#     places_result = gmaps.places_nearby(
-#         location = (user_lat, user_long),
-#         radius = radius,
-#         type = 'hospital'
-#     )
-#     hospitals = []
-#     for place in places_result['results'][:max_result]:
-#         hospitals.append({
-#             'name': place['name'],
-#             'address': place['vicinity'],
-#             'latitude': place['geometry']['location']['lat'],
-#             'longitude': place['geometry']['location']['lng']
-#         })
-#     return hospitals
-
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -144,56 +101,3 @@ def find_nearest_hospital(user_lat, user_long, radius=5000, max_result=3):
     except Exception as e:
         logger.error(f"Unexpected error: {e}")
         return []
-
-def embed_hospital_info(hospitals):
-    embedded_hospitals = []
-    for hospital in hospitals:
-        text = f"Hospital: {hospital['name']}. Address: {hospital['address']}"
-
-        embedding = generate_embeddings(text)
-        
-        hospital['embedding'] = embedding
-        embedded_hospitals.append(hospital)
-
-    return embedded_hospitals
-
-def store_hospital_in_tidb(hospital, vector_store):
-    connection = get_db_connection()
-    try:
-        with connection.cursor() as cursor:
-            insert_sql = """
-            INSERT INTO hospitals
-            (name, address, latitude, longitude)
-            VALUES (%s, %s, %s, %s)
-            """
-            cursor.execute(insert_sql, (
-                hospital['name'],
-                hospital['address'],
-                hospital['latitude'],
-                hospital['longitude']
-            ))
-            cursor.execute("SELECT LAST_INSERT_ID()")
-            db_id = cursor.fetchone()[0]
-
-        connection.commit()
-        print(f"successfully stored hospital in database: {hospital['name']}")
-
-        # store in vector store
-        vector_store.insert(
-            ids = [str(db_id)],
-            texts = [f"Hospital: {hospital['name']}. Address: {hospital['address']}"],
-            embeddings = [hospital['embedding']],
-            metadatas = [{
-                "name": hospital['name'],
-                "address": hospital['address'],
-                "latitude": hospital['latitude'],
-                "longitude": hospital['longitude']
-            }]
-        )
-        print(f"Successfully stored/updated hospital in vector store: {hospital['name']}")
-
-    except Exception as e:
-        print(f"An error occurred while storing the hospital: {e}")
-        connection.rollback()
-    finally:
-        connection.close()

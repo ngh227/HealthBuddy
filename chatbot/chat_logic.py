@@ -3,7 +3,6 @@ import google.generativeai as genai
 import logging
 import torch
 from typing import List, Tuple
-from transformers import DistilBertTokenizer, DistilBertForQuestionAnswering
 from dotenv import load_dotenv
 from data_preprocessing import (
     generate_embeddings, setup_disease_vector_store,
@@ -12,7 +11,6 @@ from data_preprocessing import (
 )
 from hospital_functions import get_user_location, find_nearest_hospital, is_hospital_request
 from diagnosis import is_diagnosis_request
-
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
@@ -137,12 +135,12 @@ def chatbot(user_input: str, disease_vector_store, chat_history: List[Tuple[str,
         
         context = generate_context(user_input, disease_vector_store)
         if not context:
-            response = f"I don't have specific information about that in my database. For more information, please contact one of these healthcare providers:\n{hospital_suggestions}"
+            response = f"I don't have specific information about that in my database. For more information, please contact your nearest healthcare providers:\n{hospital_suggestions}"
             chat_history.append((user_input, response))
             return response, chat_history
 
         response, updated_chat_history = generate_response(user_input, context, chat_history)
-        return f"Based on the information in my database: {response}", updated_chat_history
+        return f"{response}", updated_chat_history
     except Exception as e:
         logger.error(f"Error in chatbot function: {str(e)}", exc_info=True)
         return "I'm sorry, I encountered an error while processing your request. Could you please try again?"

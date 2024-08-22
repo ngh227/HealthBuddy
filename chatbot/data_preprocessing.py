@@ -1,7 +1,3 @@
-# Preprocess data from Medline Connect
-# Use Jina AI for embeddings generalization
-# Store embeddings and associated metadata in TiDB
-
 import os
 import pymysql
 import requests
@@ -49,7 +45,7 @@ def setup_disease_vector_store():
         connection_string=os.getenv('TIDB_DATABASE_URL'),
         table_name="health_topics",
         distance_strategy="cosine",
-        vector_dimension=768,  # Dimension of Jina embeddings
+        vector_dimension=768, 
         drop_existing_table=True
     )
 
@@ -75,30 +71,7 @@ def create_health_topics_table():
         print(f"An error occurred: {e}")
     finally:
         connection.close()
-## DELETE THIS ##################
-def create_clinics_table():
-    connection = get_db_connection()
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS clinics (
-                id BIGINT AUTO_RANDOM PRIMARY KEY,
-                place_id VARCHAR(255) UNIQUE,
-                name VARCHAR(255),
-                address VARCHAR(255),
-                latitude FLOAT,
-                longitude FLOAT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-            """)
-        connection.commit()
-        print("clinics table created successfully")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    finally:
-        connection.close()
-#### CODE READER ########################################################################
+
 def load_disease_codes(file_path: str) -> Dict[str, str]:
     disease_codes = {}
     with open(file_path, 'r') as file:
