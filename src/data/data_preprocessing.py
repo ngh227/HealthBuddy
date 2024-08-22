@@ -143,15 +143,3 @@ def load_disease_codes(file_path: str) -> Dict[str, str]:
                 disease_name, code = row
                 disease_codes[disease_name.lower()] = code
     return disease_codes
-
-# def get_disease_code(disease_name, file_path):
-#     disease_codes = load_disease_codes(file_path)
-#     return disease_codes.get(disease_name.lower())
-
-# def ingest_medlineplus_data(conditions):
-#     for condition in conditions:
-#         data = fetch_medlineplus_data(condition)
-#         if data:
-#             for item in data:
-#                 store_disease_in_tidb(item)
-#                 print(item)
