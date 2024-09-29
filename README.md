@@ -1,6 +1,6 @@
 # HEALTH BUDDY: HEALTH INFORMATION CHATBOT
 
-This project is a RAG-based (Retrieval-Augmented Generation) health information chatbot that provides users with reliable medical information, helps locate nearby hospitals, and handles various health-related queries.
+This project is a RAG-based (Retrieval-Augmented Generation) information chatbot that provides users with reliable medical information
 
 ## Features
 
