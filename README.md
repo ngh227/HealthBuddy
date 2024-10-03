@@ -1,5 +1,5 @@
 # HEALTH BUDDY: HEALTH INFORMATION CHATBOT
-
+Won Social Good Award at TiDB Future App Hackathon 2024 (~2100 participants)
 This project is a RAG-based (Retrieval-Augmented Generation) information chatbot that provides users with reliable medical information
 
 ## Features
